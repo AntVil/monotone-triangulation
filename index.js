@@ -6,7 +6,7 @@ let polygon;
 let sortedVertices;
 let stack;
 let edges;
-let frame;
+let algorithmDone;
 
 window.onload = () => {
     canvas = document.getElementById("canvas");
@@ -15,6 +15,7 @@ window.onload = () => {
     ctxt = canvas.getContext("2d");
 
     polygon = generateYMonotonePolygon(10);
+
     sortedVertices = sortVertices(polygon);
     stack = [
         sortedVertices.shift(),
@@ -22,7 +23,7 @@ window.onload = () => {
     ];
     edges = [];
 
-    frame = 0;
+    algorithmDone = false;
 
     loop();
 }
@@ -37,8 +38,8 @@ function generateYMonotonePolygon(size) {
     let bottom = [randomCoordinate(margin), 1 - margin];
     let chain1 = [];
     let chain2 = [];
-    
-    for(let i=1;i<size-1;i++) {
+
+    for (let i = 1; i < size - 1; i++) {
         let y1 = ((i + Math.random() / 2) / size) * (1 - 2 * margin) + margin;
         let y2 = ((i + Math.random() / 2) / size) * (1 - 2 * margin) + margin;
 
@@ -48,11 +49,11 @@ function generateYMonotonePolygon(size) {
         do {
             a = randomCoordinate(margin);
             b = randomCoordinate(margin);
-        }while(Math.abs(a - b) < 0.2);
+        } while (Math.abs(a - b) < 0.2);
 
         let left;
         let right;
-        if(a < b) {
+        if (a < b) {
             left = a;
             right = b;
         } else {
@@ -73,7 +74,7 @@ function generateYMonotonePolygon(size) {
 
 function sortVertices(polygon) {
     let index = polygon.reduce((result, value, index) => {
-        if(value[1] < polygon[result][1]) {
+        if (value[1] < polygon[result][1]) {
             return index;
         } else {
             return result;
@@ -86,10 +87,10 @@ function sortVertices(polygon) {
     let result = [[index, false]];
     let index1 = index - 1;
     let index2 = index + 1;
-    while(chain1.length > 0 || chain2.length > 0) {
+    while (chain1.length > 0 || chain2.length > 0) {
         let y1 = (chain1[0]?.[1]) ?? Infinity;
         let y2 = (chain2[0]?.[1]) ?? Infinity;
-        if(y1 < y2) {
+        if (y1 < y2) {
             chain1.shift();
             result.push([index1, false]);
             index1--;
@@ -105,7 +106,7 @@ function sortVertices(polygon) {
 }
 
 function removeRedundantEdges(chain, threshold) {
-    for(let i=chain.length-2;i>=1;i--) {
+    for (let i = chain.length - 2; i >= 1; i--) {
         let x1 = chain[i + 1][0];
         let y1 = chain[i + 1][1];
         let x2 = chain[i][0];
@@ -115,7 +116,7 @@ function removeRedundantEdges(chain, threshold) {
         let angle1 = Math.atan2(y2 - y1, x2 - x1);
         let angle2 = Math.atan2(y3 - y2, x3 - x2);
 
-        if(Math.abs(angle1 - angle2) < threshold) {
+        if (Math.abs(angle1 - angle2) < threshold) {
             chain.splice(i, 1);
         }
     }
@@ -131,69 +132,92 @@ function loop() {
     ctxt.lineWidth = 0.004;
     ctxt.beginPath();
     ctxt.moveTo(polygon[0][0], polygon[0][1]);
-    for(let i=1;i<polygon.length;i++) {
+    for (let i = 1; i < polygon.length; i++) {
         ctxt.lineTo(polygon[i][0], polygon[i][1]);
     }
     ctxt.closePath();
     ctxt.stroke();
 
-    for(let point of polygon) {
-        ctxt.beginPath();
-        ctxt.arc(point[0], point[1], 0.01, 0, 2 * Math.PI);
-        ctxt.fill();
-    }
-
-    ctxt.fillStyle = "#AAAA";
-    for(let [index, _] of stack) {
-        ctxt.beginPath();
-        ctxt.arc(polygon[index][0], polygon[index][1], 0.01, 0, 2 * Math.PI);
-        ctxt.fill();
-    }
-    
     ctxt.strokeStyle = "#AAAA";
-    for(let [point0, point1] of edges) {
+    for (let [point0, point1] of edges) {
         ctxt.beginPath();
         ctxt.moveTo(polygon[point0][0], polygon[point0][1]);
         ctxt.lineTo(polygon[point1][0], polygon[point1][1]);
         ctxt.stroke();
     }
 
-    ctxt.restore();
-
-    frame++;
-    if(frame % 60 === 0) {
-        stepAlgorithm();
+    for (let point of polygon) {
+        ctxt.beginPath();
+        ctxt.arc(point[0], point[1], 0.01, 0, 2 * Math.PI);
+        ctxt.fill();
     }
 
-    requestAnimationFrame(loop);
+    ctxt.fillStyle = "#AAAA";
+    for (let [index, _] of stack) {
+        ctxt.beginPath();
+        ctxt.arc(polygon[index][0], polygon[index][1], 0.01, 0, 2 * Math.PI);
+        ctxt.fill();
+    }
+
+    ctxt.restore();
+
+    if(stack.length > 0) {
+        stepAlgorithm();
+        setTimeout(loop, 200);
+    } else if(!algorithmDone) {
+        // render result a last time
+        algorithmDone = true;
+    }
 }
 
 function stepAlgorithm() {
-    // stack.push(sortedVertices.shift());
-
-    if(sortedVertices.length === 1) {
+    if (sortedVertices.length === 1) {
+        stack = [];
         return;
     }
-    
+
     let [stackIndex, stackChain] = stack[stack.length - 1];
     let [pointIndex, pointChain] = sortedVertices[0];
+
     if(stackChain === pointChain) {
-        console.log("case 2")
-        while(stack.length > 1) {
-            stack.pop();
+        let p1 = polygon[pointIndex];
+        let p2 = polygon[stackIndex];
+        let p3 = polygon[stack[stack.length - 2][0]];
+
+        let angle1 = Math.atan2(p1[1] - p2[1], p1[0] - p2[0]);
+        let angle2 = -Math.atan2(p3[1] - p2[1], p3[0] - p2[0]);
+
+        let angle;
+        if(!pointChain) {
+            angle = angle1 + angle2;
+        } else {
+            angle = 2 * Math.PI - (angle1 + angle2);
         }
 
+        if(angle < Math.PI) {
+            if(Math.abs(stack[stack.length - 2][0] - pointIndex) > 1){
+                edges.push([stack[stack.length - 2][0], pointIndex]);
+            }
+
+            stack.pop();
+        } else {
+            stack.push(sortedVertices.shift());
+        }
     } else {
-        console.log("case 1")
-        edges.push([stackIndex, pointIndex]);
-        while(stack.length > 1) {
-            let [index, _] = stack.pop();
+        // we remove from the bottom from the stack so the condition doesn't change,
+        // this is equivalent, because we need the empty the stack
+        let [index, _] = stack.shift();
+        if(Math.abs(index - pointIndex) > 1){
             edges.push([index, pointIndex]);
         }
-        stack = [
-            [stackIndex, stackChain],
-            [pointIndex, pointChain]
-        ];
-        sortedVertices.shift();
+
+        if(stack.length === 0) {
+            stack = [
+                [stackIndex, stackChain],
+                [pointIndex, pointChain]
+            ];
+
+            sortedVertices.shift();
+        }
     }
 }
